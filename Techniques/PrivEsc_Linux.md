@@ -1,5 +1,3 @@
-# Linux PrivEsc
-
 # Enumeration
 
 **Manual Chech**
@@ -36,7 +34,8 @@ $ find / -perm -u=s -type f 2>/dev/null  #search for SUID
 
 $ grep "CRON" /var/log/cron.log  #search in CRON logs
 $ 
-$ 
+$netstat -tulpn | grep LISTEN 
+
 ```
 
 **Automated Check**
@@ -51,6 +50,30 @@ $
 
 
 
+# Looting for passwords
+
+```bash
+Files containing passwords
+#grep --color=auto -rnw '/' -ie "PASSWORD" --color=always 2> /dev/null
+#find . -type f -exec grep -i -I "PASSWORD" {} /dev/null \;
+
+#Old passwords in /etc/security/opasswd
+
+Last edited files 10m
+#find / -mmin -10 2>/dev/null | grep -Ev "^/proc"
+
+In memory passwords
+#strings /dev/mem -n10 | grep -i PASS
+
+ssh keys
+#find / -name authorized_keys 2> /dev/null
+#find / -name id_rsa 2> /dev/null
+
+
+```
+
+
+
 
 
 # Setuid and Setgid
@@ -58,7 +81,7 @@ $
 ##### How to find SETUID/SETGID files
 
 ```
-find / -user apache -perm -4000 -exec ls -ld {} \;
+find / -user cry0l1t3 -perm -4000 -exec ls -ld {} \;
 find / -user root -perm -6000 -exec ls -ld {} \;
 ```
 

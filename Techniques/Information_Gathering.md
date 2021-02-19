@@ -39,6 +39,12 @@ theharvester -d megacorpone.com -b google
 
 
 
+**Sublister**
+
+```
+./sublist3r.py -d megacorpone.com -t 30
+```
+
 
 
 # Active Info Gathering 
@@ -111,6 +117,27 @@ nbtscan 10.10.10.185
 
 
 
+**RPC**
+
+```bash
+\# rpcclient - Connect with a null-session (only works for older windows servers)
+rpcclient -U james 10.10.10.52
+
+
+rpcclient -U "" 192.168.1.105
+
+rpcclient $> srvinfo
+rpcclient $> enumdomusers
+rpcclient $> enumalsgroups domain
+rpcclient $> lookupnames administrators
+rpcclient> querydominfo
+rpcclient> enumdomusers
+rpcclient> queryuser john
+rpcclient> enumprinters
+```
+
+
+
 **NFS**
 
 ```bash
@@ -126,6 +153,14 @@ sudo mount -t cifs -o //10.11.0.22/Data -o username=Administrator,password=Qwert
 
 
 **SMTP**
+
+```bash
+
+```
+
+
+
+**Web**
 
 ```bash
 

